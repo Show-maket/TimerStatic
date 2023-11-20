@@ -35,7 +35,6 @@ public:
     Timer* next;
 
     Timer(unsigned long time = 0, unsigned long(*t_func)() = nullptr, void(*callback)() = nullptr, bool isPre = false, bool isInf = true) {
-        Serial.println("new");
         if (Timer::head == nullptr) {
             Timer::head = this;
         }
