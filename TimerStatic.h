@@ -1,8 +1,9 @@
 class Timer {
-public:
+private:
     static inline Timer* head = nullptr;
     static inline Timer* last = nullptr;
 
+public:
     static void tick() {
         Timer* current = Timer::head;
         while (current != nullptr) {
@@ -11,6 +12,8 @@ public:
         }
     }
 
+private:
+    Timer* next;
     unsigned long nextTimeTrigger, period;
     unsigned long(*t_func)();
     void(*callback)();
@@ -32,7 +35,7 @@ public:
         }
     }
 
-    Timer* next;
+public:
 
     Timer(unsigned long time = 0, unsigned long(*t_func)() = nullptr, void(*callback)() = nullptr, bool isPre = false, bool isInf = true) {
         if (Timer::head == nullptr) {
@@ -74,6 +77,13 @@ public:
         nextTimeTrigger = t_func() - period;
     }
 
+    void ON() {
+        this->isRun = true;
+    }
+    void OFF() {
+        this->isRun = false;
+    }
+
     void delay(uint32_t time = 0, unsigned long(*t_func)() = nullptr, void(*callback)() = nullptr) {
         this->lifeShortener = Timer::lifeShortenerCount;
         this->period = time;
@@ -105,6 +115,16 @@ public:
         this->isRun = true;
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
+
+    void set(unsigned long time, unsigned long(*t_func)(), void(*callback)(), bool isPre = false) {
+        this->period = time;
+        this->t_func = t_func;
+        this->callback = callback;
+        this->isInf = true;
+        this->isRun = true;
+        this->nextTimeTrigger = isPre ? t_func() - period : t_func();
+    }
+
 
 };
 
