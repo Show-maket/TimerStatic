@@ -105,6 +105,10 @@ public:
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
 
+    bool isForLast(){
+        return this->life < this->period;
+    }
+
     void forTime(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint32_t lifeTime, bool isPre = true) {
         this->lifeShortener = Timer::lifeShortenerTime;
         this->period = time;
