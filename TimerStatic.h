@@ -106,7 +106,7 @@ public:
     }
 
     bool isForLast(){
-        return this->life < this->period && !isInf;
+        return this->life < this->period;
     }
 
     void forTime(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint32_t lifeTime, bool isPre = true) {
