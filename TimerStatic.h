@@ -19,7 +19,7 @@ private:
     void(*callback)();
     bool isRun = true;
     bool isInf;
-    uint32_t life = 1;
+    int32_t life = 1;
     void(*lifeShortener)(Timer* t) = Timer::lifeShortenerCount;
 
     static void lifeShortenerCount(Timer* timer) {
@@ -105,10 +105,6 @@ public:
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
 
-    bool isForLast(){
-        return this->life < this->period;
-    }
-
     void forTime(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint32_t lifeTime, bool isPre = true) {
         this->lifeShortener = Timer::lifeShortenerTime;
         this->period = time;
@@ -118,6 +114,10 @@ public:
         this->isInf = false;
         this->isRun = true;
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
+    }
+
+    bool isForLast(){
+        return this->life < this->period || this->life < 0;
     }
 
     void set(unsigned long time, unsigned long(*t_func)(), void(*callback)(), bool isPre = false) {
