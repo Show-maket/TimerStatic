@@ -2,6 +2,7 @@ class Timer {
 private:
     static inline Timer* head = nullptr;
     static inline Timer* last = nullptr;
+    static uint32_t lifeShortenerValStandart = 1;
 
 public:
     static void tick() {
@@ -20,20 +21,21 @@ private:
     bool isRun = true;
     bool isInf;
     int32_t life = 1;
-    void(*lifeShortener)(Timer* t) = Timer::lifeShortenerCount;
+    // void(*lifeShortener)(Timer* t) = Timer::lifeShortenerCount;
+    uint32_t* lifeShortenerVal = &lifeShortenerValStandart;
 
-    static void lifeShortenerCount(Timer* timer) {
-        timer->life--;
-        if (!timer->isInf && timer->life < timer->life - 1) {
-            timer->isRun = false;
-        }
-    }
-    static void lifeShortenerTime(Timer* timer) {
-        timer->life -= timer->period;
-        if (!timer->isInf && timer->life < timer->life - timer->period) {
-            timer->isRun = false;
-        }
-    }
+    // static void lifeShortenerCount(Timer* timer) {
+    //     timer->life--;
+    //     if (!timer->isInf && timer->life < timer->life - 1) {
+    //         timer->isRun = false;
+    //     }
+    // }
+    // static void lifeShortenerTime(Timer* timer) {
+    //     timer->life -= timer->period;
+    //     if (!timer->isInf && timer->life < timer->life - timer->period) {
+    //         timer->isRun = false;
+    //     }
+    // }
 
 public:
 
@@ -60,7 +62,12 @@ public:
     void check() {
         if (callback && t_func) {
             if (t_func() - nextTimeTrigger >= period && isRun) {
-                lifeShortener(this);
+
+                this->life -= *lifeShortenerVal;
+                if (!this->isInf && this->life < this->life - *lifeShortenerVal) {
+                    this->isRun = false;
+                }
+
                 do {
                     nextTimeTrigger += period;
                     if (nextTimeTrigger < period) break;          // переполнение uint32_t
@@ -85,7 +92,7 @@ public:
     }
 
     void delay(uint32_t time = 0, unsigned long(*t_func)() = nullptr, void(*callback)() = nullptr) {
-        this->lifeShortener = Timer::lifeShortenerCount;
+        this->lifeShortenerVal = &lifeShortenerValStandart;
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
@@ -95,7 +102,7 @@ public:
         this->nextTimeTrigger = t_func();
     }
     void forCount(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint16_t lifeCount, bool isPre = true) {
-        this->lifeShortener = Timer::lifeShortenerCount;
+        this->lifeShortenerVal = &lifeShortenerValStandart;
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
@@ -106,7 +113,7 @@ public:
     }
 
     void forTime(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint32_t lifeTime, bool isPre = true) {
-        this->lifeShortener = Timer::lifeShortenerTime;
+        this->lifeShortenerVal = &this->period;
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
@@ -116,8 +123,8 @@ public:
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
 
-    bool isForLast(){
-        return this->life < this->period || this->life < 0;
+    bool isForLast() {
+        return this->life < this->life - *lifeShortenerVal;
     }
 
     void set(unsigned long time, unsigned long(*t_func)(), void(*callback)(), bool isPre = false) {
@@ -159,7 +166,7 @@ public:
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀// ⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀// ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀// ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀Static Timer⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀// ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀v1.2⠀⠀⠀ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀// ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀v1.3⠀⠀⠀ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//**************************************************
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀//
