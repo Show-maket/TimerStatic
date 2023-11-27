@@ -20,7 +20,7 @@ private:
     void(*callback)();
     bool isRun = true;
     bool isInf;
-    uint32_t life = 0;
+    uint32_t life = 1;
     // void(*lifeShortener)(Timer* t) = Timer::lifeShortenerCount;
     uint32_t* lifeShortenerVal = &lifeShortenerValStandart;
 
@@ -62,17 +62,19 @@ public:
     void check() {
         if (callback && t_func) {
             if (t_func() - nextTimeTrigger >= period && isRun) {
+                Serial.println((String)life + "   " + (String)period);
+                callback();
+
+                if (!this->isInf && this->life < this->life - *lifeShortenerVal) {
+                    // callback();
+                    this->isRun = false;
+                    Serial.println("TIMER STOP");
+                }
+                this->life -= *lifeShortenerVal;
                 do {
                     nextTimeTrigger += period;
                     if (nextTimeTrigger < period) break;          // переполнение uint32_t
                 } while (nextTimeTrigger < t_func() - period);   // защита от пропуска шага
-                callback();
-                // Serial.println((String)life + "   " + (String)period);
-
-                if (!this->isInf && this->life < this->life - *lifeShortenerVal) {
-                    this->isRun = false;
-                }
-                this->life -= *lifeShortenerVal;
             }
         }
     }
@@ -96,7 +98,7 @@ public:
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
-        this->life = 0;
+        this->life = 1;
         this->isRun = true;
         this->isInf = false;
         this->nextTimeTrigger = t_func();
@@ -107,7 +109,7 @@ public:
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
-        this->life = lifeCount - 1;
+        this->life = lifeCount;
         this->isInf = false;
         this->isRun = lifeCount != 0;
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
@@ -125,14 +127,14 @@ public:
     }
 
     bool isForLast() {
-        return this->life <= period;
+        return this->life < period;
     }
 
     void set(unsigned long time, unsigned long(*t_func)(), void(*callback)(), bool isPre = false) {
         this->period = time;
         this->t_func = t_func;
         this->callback = callback;
-        this->life = 0;
+        this->life = 1;
         this->isInf = true;
         this->isRun = true;
         this->nextTimeTrigger = isPre ? t_func() - period : t_func();
