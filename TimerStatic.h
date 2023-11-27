@@ -70,7 +70,7 @@ public:
                     this->isRun = false;
                     Serial.println("TIMER STOP");
                 }
-                this->life -= *lifeShortenerVal;
+                this->life -= *lifeShortenerVal + (t_func()-nextTimeTrigger);
                 do {
                     nextTimeTrigger += period;
                     if (nextTimeTrigger < period) break;          // переполнение uint32_t
