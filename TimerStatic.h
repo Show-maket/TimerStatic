@@ -59,12 +59,12 @@ class Timer {
         if (t_func() - nextTimeTrigger >= periodTmp && isRun) {
           // Serial.println((String)life + "   " + (String)periodTmp);
           callback();
-          if(setNew){ Serial.println("Новый"); return; }
+        //   if(setNew){ Serial.println("Новый"); return; }
           uint32_t lifeShortenerVal = lifeShortener(this);
           // Serial.print("--"); Serial.println(lifeShortenerVal);
           if (!this->isInf && this->life < lifeShortenerVal) {
             this->isRun = false;
-            Serial.println("TIMER STOP");
+            // Serial.println("TIMER STOP");
           }
 
           this->life = lifeShortenerVal;
