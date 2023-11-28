@@ -91,7 +91,6 @@ class Timer {
     }
 
     void delay(uint32_t time = 0, unsigned long(*t_func)() = nullptr, void(*callback)() = nullptr) {
-      Serial.println("delay");
       this->lifeShortener = Timer::lifeShortenerCount;
       this->period = time;
       this->t_func = t_func;
