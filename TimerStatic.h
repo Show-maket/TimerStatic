@@ -71,7 +71,7 @@ class Timer {
           do {
             nextTimeTrigger += periodTmp;
             if (nextTimeTrigger < periodTmp) break;          // переполнение uint32_t
-          } while (nextTimeTrigger < t_func() - periodTmp);   // защита от пропуска шага
+          } while (periodTmp != 0 && nextTimeTrigger < t_func() - periodTmp );   // защита от пропуска шага
         }
       }
     }
