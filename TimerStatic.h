@@ -107,7 +107,7 @@ class Timer {
       this->period = time;
       this->t_func = t_func;
       this->callback = callback;
-      this->life = lifeCount - 1;
+      this->life = lifeCount;
       this->isInf = false;
       this->isRun = lifeCount != 0;
       this->setNew = true;
