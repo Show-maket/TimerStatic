@@ -59,7 +59,7 @@ class Timer {
         if (t_func() - nextTimeTrigger >= periodTmp && isRun) {
           // Serial.println((String)life + "   " + (String)periodTmp);
           callback();
-          if(setNew){ /* Serial.println("Новый"); */ return; }
+          if(setNew){ /* Serial.println("Новый");  */return; }
           uint32_t lifeShortenerVal = lifeShortener(this);
           // Serial.print("--"); Serial.println(lifeShortenerVal);
           if (!this->isInf && this->life < lifeShortenerVal) {
@@ -100,6 +100,7 @@ class Timer {
       this->isInf = false;
       this->setNew = true;
       this->nextTimeTrigger = t_func();
+      Serial.println("S");
     }
     void forCount(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint16_t lifeCount, bool isPre = true) {
 
@@ -110,7 +111,7 @@ class Timer {
       this->life = lifeCount;
       this->isInf = false;
       this->isRun = lifeCount != 0;
-      this->setNew = true;
+      // this->setNew = true;
       this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
 
