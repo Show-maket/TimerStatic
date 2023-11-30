@@ -100,7 +100,7 @@ class Timer {
       this->isInf = false;
       this->setNew = true;
       this->nextTimeTrigger = t_func();
-      Serial.println("S");
+      // Serial.println("S");
     }
     void forCount(uint32_t time, unsigned long(*t_func)(), void(*callback)(), uint16_t lifeCount, bool isPre = true) {
 
