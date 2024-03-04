@@ -1,3 +1,4 @@
+#pragma once
 class Timer {
 private:
   static inline Timer* head = nullptr;
