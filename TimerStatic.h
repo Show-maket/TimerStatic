@@ -5,7 +5,7 @@ private:
   static inline Timer* last = nullptr;
 
   typedef void (*CallbackFunc)();
-  typedef void (*CallbackFuncParam)(void *);
+  typedef void (*CallbackFuncParam)(void*);
   typedef unsigned long(*TimeFunc)();
   typedef uint32_t(*LifeShortenerFunc)(Timer* t);
 
@@ -22,13 +22,15 @@ private:
   Timer* next;
   unsigned long nextTimeTrigger, period;
   TimeFunc t_func;
-  CallbackFuncParam callback;
+  CallbackFuncParam callbackParam;
+  CallbackFunc callback;
   void* obj = nullptr;
   bool isRun = true;
   bool isInf;
   uint32_t life = 0;
   LifeShortenerFunc lifeShortener = Timer::lifeShortenerCount;
   bool setNew = false;
+  uint8_t dontUseParam = 0;
 
   static inline uint32_t lifeShortenerCount(Timer* timer) {
     return timer->life - 1;
@@ -37,7 +39,7 @@ private:
     return timer->life - (timer->period + ((timer->t_func() - timer->nextTimeTrigger) - timer->period));
   }
 
-  void _Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callback, bool isPre) {
+  void _Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre) {
     if (Timer::head == nullptr) {
       Timer::head = this;
     }
@@ -48,26 +50,29 @@ private:
 
     this->t_func = t_func;
     this->isInf = true;
-    if (!callback || !t_func) {
+    if (!(callback == nullptr || callbackParam == nullptr) || !t_func) {
       isRun = false;
     } else {
       this->nextTimeTrigger = isPre ? t_func() - period : t_func();
     }
     this->period = time;
-    this->callback = callback;
+    this->callbackParam = callbackP;
   }
 public:
 
-  Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callback, bool isPre = false) {
-    _Timer(time, t_func, callback, isPre);
+  Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false) {
+    dontUseParam = 0;
+    _Timer(time, t_func, callbackP, isPre);
   }
-  Timer(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false) {
-    _Timer(time, t_func, (CallbackFuncParam)callback, isPre);
+  Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre = false) {
+    dontUseParam = 2;
+    this->callback = callbackNoP;
+    _Timer(time, t_func, nullptr, isPre);
   }
   Timer(void* obj) : obj(obj) {
     _Timer(0, nullptr, nullptr, false);
   }
-  Timer(){
+  Timer() {
     _Timer(0, nullptr, nullptr, false);
   }
 
@@ -76,27 +81,29 @@ public:
   }
 
   void check() {
-    if (callback && t_func) {
-      uint32_t periodTmp = period;
-      setNew = false;
-      if (t_func() - nextTimeTrigger >= periodTmp && isRun) {
-        // Serial.println((String)life + "   " + (String)periodTmp);
-        callback(obj);
-        if (setNew) { /* Serial.println("Новый");  */return; }
-        uint32_t lifeShortenerVal = lifeShortener(this);
-        // Serial.print("--"); Serial.println(lifeShortenerVal);
-        if (!this->isInf && this->life < lifeShortenerVal) {
-          this->isRun = false;
-          // Serial.println("TIMER STOP");
-        }
+    if (!(callback == nullptr || callbackParam == nullptr) || !t_func) { return; }
+    uint32_t periodTmp = period;
+    setNew = false;
+    if (t_func() - nextTimeTrigger >= periodTmp && isRun) {
+      // Serial.println((String)life + "   " + (String)periodTmp);
 
-        this->life = lifeShortenerVal;
-        do {
-          nextTimeTrigger += periodTmp;
-          if (nextTimeTrigger < periodTmp) break;          // переполнение uint32_t
-        } while (periodTmp != 0 && nextTimeTrigger < t_func() - periodTmp);   // защита от пропуска шага
+      if (dontUseParam) { this->callback(); } else { callbackParam(obj); }
+
+      if (setNew) { /* Serial.println("Новый");  */return; }
+      uint32_t lifeShortenerVal = lifeShortener(this);
+      // Serial.print("--"); Serial.println(lifeShortenerVal);
+      if (!(this->isInf) && this->life < lifeShortenerVal) {
+        this->isRun = false;
+        // Serial.println("TIMER STOP");
       }
+
+      this->life = lifeShortenerVal;
+      do {
+        nextTimeTrigger += periodTmp;
+        if (nextTimeTrigger < periodTmp) break;          // переполнение uint32_t
+      } while (periodTmp != 0 && nextTimeTrigger < t_func() - periodTmp);   // защита от пропуска шага
     }
+
   }
 
   void resetToStart() {
@@ -113,31 +120,37 @@ public:
     this->isRun = false;
   }
 
-  void delay(uint32_t time = 0, TimeFunc t_func = nullptr, CallbackFunc callback = nullptr) {
-    delay(time, t_func, (CallbackFuncParam)callback);
+  void delay(uint32_t time, TimeFunc t_func, CallbackFunc callback) {
+    this->callback = callback;
+    dontUseParam = 2;
+    delay(time, t_func, [](void*) {});
   }
-  void delay(uint32_t time = 0, TimeFunc t_func = nullptr, CallbackFuncParam callback = nullptr) {
+  void delay(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP) {
+    if (dontUseParam) { dontUseParam--; }
+    this->callbackParam = callbackP;
     this->lifeShortener = Timer::lifeShortenerCount;
     this->period = time;
     this->t_func = t_func;
-    this->callback = callback;
     this->life = 0;
     this->isRun = true;
     this->isInf = false;
     this->setNew = true;
     this->nextTimeTrigger = t_func();
+
     // Serial.println("S");
   }
 
   void forCount(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint16_t lifeCount, bool isPre = true) {
-    forCount(time, t_func, (CallbackFuncParam)callback, lifeCount, isPre);
+    this->callback = callback;
+    dontUseParam = 2;
+    forCount(time, t_func, [](void*) {}, lifeCount, isPre);
   }
-  void forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callback, uint16_t lifeCount, bool isPre = true) {
-
+  void forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint16_t lifeCount, bool isPre = true) {
+    if (dontUseParam) { dontUseParam--; }
     this->lifeShortener = Timer::lifeShortenerCount;
     this->period = time;
     this->t_func = t_func;
-    this->callback = callback;
+    this->callbackParam = callbackP;
     this->life = lifeCount;
     this->isInf = false;
     this->isRun = lifeCount != 0;
@@ -146,13 +159,16 @@ public:
   }
 
   void forTime(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint32_t lifeTime, bool isPre = true) {
-    forTime(time, t_func, (CallbackFuncParam)callback, lifeTime, isPre);
+    this->callback = callback;
+    dontUseParam = 2;
+    forTime(time, t_func, [](void*) {}, lifeTime, isPre);
   }
-  void forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callback, uint32_t lifeTime, bool isPre = true) {
+  void forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint32_t lifeTime, bool isPre = true) {
+    if (dontUseParam) { dontUseParam--; }
     this->lifeShortener = Timer::lifeShortenerTime;
     this->period = time;
     this->t_func = t_func;
-    this->callback = callback;
+    this->callbackParam = callbackP;
     this->life = lifeTime;
     this->isInf = false;
     this->isRun = lifeTime != 0;
@@ -165,13 +181,16 @@ public:
   }
 
   void set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false) {
-    set(time, t_func, (CallbackFuncParam)callback, isPre);
+    this->callback = callback;
+    dontUseParam = 2;
+    set(time, t_func, [](void*) {}, isPre);
   }
-  void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callback, bool isPre = false) {
+  void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false) {
+    if (dontUseParam) { dontUseParam--; }
     this->lifeShortener = Timer::lifeShortenerCount;
     this->period = time;
     this->t_func = t_func;
-    this->callback = callback;
+    this->callbackParam = callbackP;
     this->life = 0;
     this->isInf = true;
     this->isRun = true;
@@ -184,10 +203,13 @@ public:
   }
 
   void setCallback(CallbackFunc callback) {
-    setCallback((CallbackFuncParam)callback);
-  }
-  void setCallback(CallbackFuncParam callback) {
+    dontUseParam = 2;
     this->callback = callback;
+  }
+
+  void setCallback(CallbackFuncParam callbackP) {
+    if (dontUseParam) { dontUseParam--; }
+    this->callbackParam = callbackP;
   }
 
 };
