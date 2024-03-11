@@ -81,17 +81,15 @@ public:
   }
 
   void check() {
-    if (!(callback == nullptr || callbackParam == nullptr) || !t_func) { return; }
+    if (!t_func) { return; }
     uint32_t periodTmp = period;
     setNew = false;
     if (t_func() - nextTimeTrigger >= periodTmp && isRun) {
-      // Serial.println((String)life + "   " + (String)periodTmp);
 
       if (dontUseParam) { this->callback(); } else { callbackParam(obj); }
 
-      if (setNew) { /* Serial.println("Новый");  */return; }
+      if (setNew) { return; }
       uint32_t lifeShortenerVal = lifeShortener(this);
-      // Serial.print("--"); Serial.println(lifeShortenerVal);
       if (!(this->isInf) && this->life < lifeShortenerVal) {
         this->isRun = false;
         // Serial.println("TIMER STOP");
@@ -187,6 +185,8 @@ public:
   }
   void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false) {
     if (dontUseParam) { dontUseParam--; }
+    Serial.print("timer set ");
+    Serial.println(dontUseParam);
     this->lifeShortener = Timer::lifeShortenerCount;
     this->period = time;
     this->t_func = t_func;
