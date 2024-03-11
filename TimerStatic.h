@@ -199,6 +199,9 @@ public:
   void setPeriod(uint32_t val) {
     this->period = val;
   }
+  uint32_t getPeriod() {
+    return this->period;
+  }
 
   void setCallback(CallbackFunc callback) {
     dontUseParam = 2;
