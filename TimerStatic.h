@@ -185,8 +185,6 @@ public:
   }
   void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false) {
     if (dontUseParam) { dontUseParam--; }
-    Serial.print("timer set ");
-    Serial.println(dontUseParam);
     this->lifeShortener = Timer::lifeShortenerCount;
     this->period = time;
     this->t_func = t_func;
