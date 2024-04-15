@@ -2,8 +2,8 @@
 class Timer
 {
 private:
-  static inline Timer *head = nullptr;
-  static inline Timer *last = nullptr;
+  static Timer *head;
+  static Timer *last;
 
   typedef void (*CallbackFunc)();
   typedef void (*CallbackFuncParam)(void *);
@@ -281,6 +281,9 @@ public:
     this->callbackParam = callbackP;
   }
 };
+
+Timer* Timer::head;
+Timer* Timer::last = nullptr;
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////
 
