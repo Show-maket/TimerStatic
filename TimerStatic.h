@@ -30,7 +30,6 @@ private:
   bool setNew = false;
   uint8_t dontUseParam = 0;
 
-
   void _Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre);
 
 public:
@@ -60,8 +59,8 @@ public:
   void set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false);
   void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);
 
-  inline void Timer::setPeriod(uint32_t val){this->period = val;}
-  inline uint32_t Timer::getPeriod(){return this->period;}
+  inline void setPeriod(uint32_t val) { this->period = val; }
+  inline uint32_t getPeriod() { return this->period; }
 
   void setCallback(CallbackFunc callback);
   void setCallback(CallbackFuncParam callbackP);

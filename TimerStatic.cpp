@@ -40,12 +40,12 @@ void Timer::tick()
   }
 
 
-  Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false)
+  Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre)
   {
     dontUseParam = 0;
     _Timer(time, t_func, callbackP, isPre);
   }
-  Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre = false)
+  Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre)
   {
     dontUseParam = 2;
     this->callback = callbackNoP;
@@ -130,14 +130,14 @@ void Timer::tick()
     // Serial.println("S");
   }
 
-  void Timer::forCount(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint16_t lifeCount, bool isPre = true)
+  void Timer::forCount(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint16_t lifeCount, bool isPre)
   {
     this->callback = callback;
     dontUseParam = 2;
     forCount(
         time, t_func, [](void *) {}, lifeCount, isPre);
   }
-  void Timer::forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint16_t lifeCount, bool isPre = true)
+  void Timer::forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint16_t lifeCount, bool isPre)
   {
     if (dontUseParam)
     {
@@ -154,14 +154,14 @@ void Timer::tick()
     this->nextTimeTrigger = isPre ? t_func() - period : t_func();
   }
 
-  void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint32_t lifeTime, bool isPre = true)
+  void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint32_t lifeTime, bool isPre)
   {
     this->callback = callback;
     dontUseParam = 2;
     forTime(
         time, t_func, [](void *) {}, lifeTime, isPre);
   }
-  void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint32_t lifeTime, bool isPre = true)
+  void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint32_t lifeTime, bool isPre)
   {
     if (dontUseParam)
     {
@@ -183,14 +183,14 @@ void Timer::tick()
     return life < lifeShortener(this);
   }
 
-  void Timer::set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false)
+  void Timer::set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre)
   {
     this->callback = callback;
     dontUseParam = 2;
     set(
         time, t_func, [](void *) {}, isPre);
   }
-  void Timer::set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false)
+  void Timer::set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre)
   {
     if (dontUseParam)
     {
