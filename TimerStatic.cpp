@@ -59,6 +59,9 @@ void Timer::tick()
   {
     _Timer(0, nullptr, nullptr, false);
   }
+  Timer::Timer(TimeFunc t_func, void *obj): obj(obj){
+    _Timer(0, t_func, nullptr, false);
+  }
 
    uint32_t Timer::lifeShortenerCount(Timer *timer){return timer->life - 1;}
    uint32_t Timer::lifeShortenerTime(Timer *timer){return timer->life - (timer->period + ((timer->t_func() - timer->nextTimeTrigger) - timer->period));}
