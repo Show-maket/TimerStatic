@@ -17,7 +17,7 @@ public:
 private:
   static uint32_t lifeShortenerCount(Timer *timer);
   static uint32_t lifeShortenerTime(Timer *timer);
-  Timer *next;
+  Timer *next = nullptr;
   unsigned long nextTimeTrigger, period;
   TimeFunc t_func;
   CallbackFuncParam callbackParam;
@@ -38,6 +38,7 @@ public:
   Timer(void *obj);
   Timer(TimeFunc t_func, void *obj);
   Timer();
+  ~Timer();
 
   void check();
   inline void setObj(void *obj) { this->obj = obj; }

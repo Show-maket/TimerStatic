@@ -224,3 +224,38 @@ void Timer::tick()
     }
     this->callbackParam = callbackP;
   }
+
+  Timer::~Timer() {
+    // Если список пуст, ничего не делаем
+    if (head == nullptr) {
+        return;
+    }
+
+    // Если удаляемый элемент — голова списка
+    if (this == head) {
+        head = this->next;  // Перемещаем голову на следующий элемент
+        // Если это был единственный элемент, обнуляем last
+        if (this == last) {
+            last = nullptr;
+        }
+    } else {
+        // Ищем предыдущий элемент перед this
+        Timer* prev = head;
+        while (prev != nullptr && prev->next != this) {
+            prev = prev->next;
+        }
+
+        // Если нашли предыдущий элемент, перелинковываем
+        if (prev != nullptr) {
+            prev->next = this->next;
+        }
+
+        // Если удаляемый элемент — последний, обновляем last
+        if (this == last) {
+            last = prev;
+        }
+    }
+
+    // Обнуляем указатель next у удаляемого элемента (на всякий случай)
+    this->next = nullptr;
+}
