@@ -38,6 +38,12 @@ public:
   Timer(void *obj);
   Timer(TimeFunc t_func, void *obj);
   Timer();
+
+  Timer(const Timer&) = delete;
+  Timer& operator=(const Timer&) = delete;
+  Timer(Timer&& other) noexcept;
+  Timer& operator=(Timer&& other) noexcept;
+
   ~Timer();
 
   void check();

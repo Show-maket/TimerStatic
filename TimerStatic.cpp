@@ -259,3 +259,100 @@ void Timer::tick()
     // Обнуляем указатель next у удаляемого элемента (на всякий случай)
     this->next = nullptr;
 }
+
+Timer::Timer(Timer&& other) noexcept {
+  // Сначала удалить this из списка, если вдруг оно было добавлено до перемещения
+  this->~Timer();
+
+  // Перемещаем все поля
+  this->next = other.next;
+  this->nextTimeTrigger = other.nextTimeTrigger;
+  this->period = other.period;
+  this->t_func = other.t_func;
+  this->callback = other.callback;
+  this->callbackParam = other.callbackParam;
+  this->obj = other.obj;
+  this->isRun = other.isRun;
+  this->isInf = other.isInf;
+  this->life = other.life;
+  this->lifeShortener = other.lifeShortener;
+  this->setNew = other.setNew;
+  this->dontUseParam = other.dontUseParam;
+
+  // Обнуляем перемещённый объект
+  other.next = nullptr;
+  other.t_func = nullptr;
+  other.callback = nullptr;
+  other.callbackParam = nullptr;
+  other.obj = nullptr;
+  other.isRun = false;
+  other.life = 0;
+  other.setNew = false;
+
+  // Перелинковываем себя в список вместо other
+  if (Timer::head == &other) {
+    Timer::head = this;
+  } else {
+    Timer* prev = Timer::head;
+    while (prev && prev->next != &other) {
+      prev = prev->next;
+    }
+    if (prev) {
+      prev->next = this;
+    }
+  }
+
+  if (Timer::last == &other) {
+    Timer::last = this;
+  }
+
+  // Указатель next у this уже взят из other выше
+}
+
+Timer& Timer::operator=(Timer&& other) noexcept {
+  if (this != &other) {
+    this->~Timer(); // удалить старую версию из списка
+
+    // Переместить как в конструкторе
+    this->next = other.next;
+    this->nextTimeTrigger = other.nextTimeTrigger;
+    this->period = other.period;
+    this->t_func = other.t_func;
+    this->callback = other.callback;
+    this->callbackParam = other.callbackParam;
+    this->obj = other.obj;
+    this->isRun = other.isRun;
+    this->isInf = other.isInf;
+    this->life = other.life;
+    this->lifeShortener = other.lifeShortener;
+    this->setNew = other.setNew;
+    this->dontUseParam = other.dontUseParam;
+
+    other.next = nullptr;
+    other.t_func = nullptr;
+    other.callback = nullptr;
+    other.callbackParam = nullptr;
+    other.obj = nullptr;
+    other.isRun = false;
+    other.life = 0;
+    other.setNew = false;
+
+    if (Timer::head == &other) {
+      Timer::head = this;
+    } else {
+      Timer* prev = Timer::head;
+      while (prev && prev->next != &other) {
+        prev = prev->next;
+      }
+      if (prev) {
+        prev->next = this;
+      }
+    }
+
+    if (Timer::last == &other) {
+      Timer::last = this;
+    }
+  }
+
+  return *this;
+}
