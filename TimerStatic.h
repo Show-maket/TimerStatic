@@ -37,6 +37,7 @@ private:
   uint8_t dontUseParam = 0;
 
   void _Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre);
+  void unlinkFromList();
 
 public:
   Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);

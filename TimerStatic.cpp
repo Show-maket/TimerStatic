@@ -330,32 +330,29 @@ void Timer::setCallback(std::function<void()> func)
 }
 #endif
 
-Timer::~Timer() {
-  if (head == nullptr) {
-      return;
-  }
-  if (this == head) {
-      head = this->next;
-      if (this == last) {
-          last = nullptr;
-      }
+void Timer::unlinkFromList() {
+  if (Timer::head == nullptr) return;
+
+  if (this == Timer::head) {
+    Timer::head = this->next;
+    if (this == Timer::last) Timer::last = nullptr;
   } else {
-      Timer* prev = head;
-      while (prev != nullptr && prev->next != this) {
-          prev = prev->next;
-      }
-      if (prev != nullptr) {
-          prev->next = this->next;
-      }
-      if (this == last) {
-          last = prev;
-      }
+    Timer* prev = Timer::head;
+    while (prev && prev->next != this) prev = prev->next;
+    if (prev) prev->next = this->next;
+    if (this == Timer::last) Timer::last = prev;
   }
+
   this->next = nullptr;
 }
 
+Timer::~Timer() {
+  unlinkFromList();
+}
+
 Timer::Timer(Timer&& other) noexcept {
-  this->~Timer();
+  unlinkFromList();  // удалить this из списка, если он был связан
+
   this->next = other.next;
   this->nextTimeTrigger = other.nextTimeTrigger;
   this->period = other.period;
@@ -385,25 +382,25 @@ Timer::Timer(Timer&& other) noexcept {
   other.callbackStdFunc = nullptr;
 #endif
 
+  // Обновление связей в глобальном списке
   if (Timer::head == &other) {
     Timer::head = this;
   } else {
     Timer* prev = Timer::head;
-    while (prev && prev->next != &other) {
-      prev = prev->next;
-    }
-    if (prev) {
-      prev->next = this;
-    }
+    while (prev && prev->next != &other) prev = prev->next;
+    if (prev) prev->next = this;
   }
+
   if (Timer::last == &other) {
     Timer::last = this;
   }
 }
 
+
 Timer& Timer::operator=(Timer&& other) noexcept {
   if (this != &other) {
-    this->~Timer();
+    unlinkFromList();  // удалить this из списка перед перемещением
+
     this->next = other.next;
     this->nextTimeTrigger = other.nextTimeTrigger;
     this->period = other.period;
@@ -433,20 +430,19 @@ Timer& Timer::operator=(Timer&& other) noexcept {
     other.callbackStdFunc = nullptr;
 #endif
 
+    // Обновление связей в глобальном списке
     if (Timer::head == &other) {
       Timer::head = this;
     } else {
       Timer* prev = Timer::head;
-      while (prev && prev->next != &other) {
-        prev = prev->next;
-      }
-      if (prev) {
-        prev->next = this;
-      }
+      while (prev && prev->next != &other) prev = prev->next;
+      if (prev) prev->next = this;
     }
+
     if (Timer::last == &other) {
       Timer::last = this;
     }
   }
   return *this;
 }
+
