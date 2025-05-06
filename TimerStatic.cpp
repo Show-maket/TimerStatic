@@ -45,18 +45,19 @@ Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, b
   _Timer(time, t_func, callbackP, isPre);
 }
 
-Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre)
-{
-  dontUseParam = 2;
-  this->callback = callbackNoP;
-  _Timer(time, t_func, nullptr, isPre);
-}
 
 #ifndef __AVR__
 Timer::Timer(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre)
 {
   dontUseParam = 0;
   this->callbackStdFunc = callbackStd;
+  _Timer(time, t_func, nullptr, isPre);
+}
+#else
+Timer::Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre)
+{
+  dontUseParam = 2;
+  this->callback = callbackNoP;
   _Timer(time, t_func, nullptr, isPre);
 }
 #endif
@@ -150,7 +151,7 @@ void Timer::delay(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP)
 }
 
 #ifndef __AVR__
-void Timer::delay(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd)
+void Timer::delay_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd)
 {
   this->callbackStdFunc = callbackStd;
   this->callback = nullptr;
@@ -194,7 +195,7 @@ void Timer::forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP
 }
 
 #ifndef __AVR__
-void Timer::forCount(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint16_t lifeCount, bool isPre)
+void Timer::forCount_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint16_t lifeCount, bool isPre)
 {
   this->callbackStdFunc = callbackStd;
   this->callback = nullptr;
@@ -238,7 +239,7 @@ void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP,
 }
 
 #ifndef __AVR__
-void Timer::forTime(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint32_t lifeTime, bool isPre)
+void Timer::forTime_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint32_t lifeTime, bool isPre)
 {
   this->callbackStdFunc = callbackStd;
   this->callback = nullptr;
@@ -287,7 +288,7 @@ void Timer::set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP
 }
 
 #ifndef __AVR__
-void Timer::set(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre)
+void Timer::set_std(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre)
 {
   this->callbackStdFunc = callbackStd;
   this->callback = nullptr;
@@ -321,7 +322,7 @@ void Timer::setCallback(CallbackFuncParam callbackP)
 }
 
 #ifndef __AVR__
-void Timer::setCallback(std::function<void()> func)
+void Timer::setCallback_std(std::function<void()> func)
 {
   callbackStdFunc = func;
   callback = nullptr;

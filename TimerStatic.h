@@ -41,10 +41,11 @@ private:
 
 public:
   Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);
-  Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre = false);
-#ifndef __AVR__
+  #ifndef __AVR__
   Timer(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre = false);
-#endif
+  #else
+  Timer(unsigned long time, TimeFunc t_func, CallbackFunc callbackNoP, bool isPre = false);
+  #endif
   Timer(void *obj);
   Timer(TimeFunc t_func, void *obj);
   Timer();
@@ -69,24 +70,24 @@ public:
   void delay(uint32_t time, TimeFunc t_func, CallbackFunc callback);
   void delay(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP);
 #ifndef __AVR__
-  void delay(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd);
+  void delay_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd);
 #endif
   void forCount(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint16_t lifeCount, bool isPre = true);
   void forCount(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint16_t lifeCount, bool isPre = true);
 #ifndef __AVR__
-  void forCount(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint16_t lifeCount, bool isPre = true);
+  void forCount_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint16_t lifeCount, bool isPre = true);
 #endif
   void forTime(uint32_t time, TimeFunc t_func, CallbackFunc callback, uint32_t lifeTime, bool isPre = true);
   void forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP, uint32_t lifeTime, bool isPre = true);
 #ifndef __AVR__
-  void forTime(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint32_t lifeTime, bool isPre = true);
+  void forTime_std(uint32_t time, TimeFunc t_func, std::function<void()> callbackStd, uint32_t lifeTime, bool isPre = true);
 #endif
   bool isForLast();
 
   void set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false);
   void set(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);
 #ifndef __AVR__
-  void set(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre = false);
+  void set_std(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre = false);
 #endif
   inline void setPeriod(uint32_t val) { this->period = val; }
   inline uint32_t getPeriod() { return this->period; }
@@ -94,7 +95,7 @@ public:
   void setCallback(CallbackFunc callback);
   void setCallback(CallbackFuncParam callbackP);
 #ifndef __AVR__
-  void setCallback(std::function<void()> func);
+  void setCallback_std(std::function<void()> func);
 #endif
 };
 
