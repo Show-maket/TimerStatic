@@ -262,6 +262,16 @@ bool Timer::isForLast()
   return life < lifeShortener(this);
 }
 
+void Timer::setLifeCount(uint16_t newLifeCount) {
+    if (!isRun_ || isInf) return;
+    this->life = newLifeCount;
+}
+
+void Timer::setLifeTime(uint32_t newLifeTime) {
+    if (!isRun_ || isInf) return;
+    this->life = newLifeTime;
+}
+
 void Timer::set(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre)
 {
   this->callback = callback;

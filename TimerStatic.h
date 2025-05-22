@@ -63,9 +63,12 @@ public:
   inline void resetToStart() { if (t_func != nullptr) nextTimeTrigger = t_func(); }
   inline void resetToEnd() { if (t_func != nullptr /* && period <= t_func() */) nextTimeTrigger = t_func() - period; }
 
+  void setLifeCount(uint16_t newLifeCount);
+  void setLifeTime(uint32_t newLifeTime);
+
   inline void ON() { this->isRun_ = true; }
   inline void OFF() { this->isRun_ = false; /* SerialUSB.print("Timer ");SerialUSB.print(period); SerialUSB.println(" OFF"); */}
-  inline bool isRun() { return this->isRun_; }
+  inline bool isRun() const { return this->isRun_; }
 
   void delay(uint32_t time, TimeFunc t_func, CallbackFunc callback);
   void delay(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP);
