@@ -1,0 +1,30 @@
+{
+  "name": "TimerStatic",
+  "version": "2.2.0",
+  "description": "Лёгкая библиотека таймеров для Arduino, которая предоставляет статическую функциональность таймеров с поддержкой различных типов обратных вызовов",
+  "keywords": "timer, arduino, callback, non-blocking, timing, таймер, ардуино, обратный вызов, неблокирующий, время",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dashyfox/TimerStatic.git"
+  },
+  "authors": [
+    {
+      "name": "DashyFox",
+      "email": "dashyfox@example.com",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "headers": "TimerStatic.h",
+  "build": {
+    "srcDir": "src",
+    "includeDir": "src"
+  },
+  "examples": [
+    "examples/BasicBlink/BasicBlink.ino",
+    "examples/MultipleTimers/MultipleTimers.ino",
+    "examples/AVRCompatibility/AVRCompatibility.ino"
+  ]
+}

@@ -1,210 +1,145 @@
-# TimerStatic
+# TimerStatic Library
 
-**TimerStatic** — лёгкая Arduino-библиотека для управления множеством таймеров с использованием `millis()` или другой пользовательской функции времени.
+Лёгкая и эффективная библиотека таймеров для Arduino, которая предоставляет статическую функциональность таймеров с поддержкой различных типов обратных вызовов.
 
-Поддерживает: `delay`, `set`, `forCount`, `forTime`, `setCallback`, передачу параметров, глобальное обновление всех таймеров через `Timer::tick()`.
+## Возможности
 
----
+- **Статическое управление таймерами**: Эффективное управление таймерами на основе связанного списка
+- **Множественные типы обратных вызовов**: Поддержка указателей на функции, лямбда-функций и объектно-ориентированных обратных вызовов
+- **Управление жизненным циклом**: Счётчики и временные ограничения жизненного цикла таймеров
+- **Функциональность задержки**: Встроенные возможности задержки и таймаута
+- **Эффективность памяти**: Минимальное потребление памяти с умным управлением ресурсами
+- **Кросс-платформенность**: Совместимость с платами AVR и не-AVR Arduino
+- **Move semantics**: Поддержка семантики перемещения для эффективной работы с объектами
 
-## Подключение
+## Установка
+
+1. Скачайте библиотеку
+2. Распакуйте в папку библиотек Arduino
+3. Перезапустите Arduino IDE
+4. Подключите библиотеку: `#include "TimerStatic.h"`
+
+## Базовое использование
+
 ```cpp
-#include <TimerStatic.h>
-```
+#include "TimerStatic.h"
 
-В `loop()` обязательно:
-```cpp
-void loop() {
-  Timer::tick();
-}
-```
-
----
-
-## Примеры для AVR (только указатели на функции C++)
-
-### Простой повторяющийся таймер
-```cpp
-void toggle(void *) {
-  digitalWrite(13, !digitalRead(13));
-}
-
-Timer t;
+// Создаём таймер, который срабатывает каждые 1000мс
+Timer timer(1000, millis, []() {
+  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+});
 
 void setup() {
-  pinMode(13, OUTPUT);
-  t.set(500, millis, toggle);
+  pinMode(LED_BUILTIN, OUTPUT);
+}
+
+void loop() {
+  timer.check();  // Проверяем, должен ли сработать таймер
 }
 ```
 
-### Таймер внутри класса (AVR, C++11)
+## Типы таймеров
+
+### Периодический таймер
 ```cpp
-class LED {
-  Timer t;
-  uint8_t pin;
-  bool state = false;
-
-  static void toggle(void *ctx) {
-    LED *self = static_cast<LED*>(ctx);
-    self->state = !self->state;
-    digitalWrite(self->pin, self->state);
-  }
-
-public:
-  LED(uint8_t p, uint32_t ms) : pin(p) {
-    pinMode(pin, OUTPUT);
-    t.setObj(this);
-    t.set(ms, millis, toggle);
-  }
-};
-
-LED led(13, 500);
+// Таймер, который работает бесконечно
+Timer timer(1000, millis, callbackFunction);
 ```
 
----
-
-## Примеры для ARM/ESP/STM32 (с лямбдами, std::function)
-
-### Прямо в конструкторе (бесконечный таймер)
+### Таймер с ограничением по количеству
 ```cpp
-Timer t(1000, millis, [] (void *) {
-  Serial.println("Tick");
+// Таймер, который работает определённое количество раз
+timer.forCount(1000, millis, callbackFunction, 5);
+```
+
+### Таймер с временным ограничением
+```cpp
+// Таймер, который работает определённое время
+timer.forTime(1000, millis, callbackFunction, 10000); // 10 секунд
+```
+
+### Таймер задержки
+```cpp
+// Таймер однократной задержки
+timer.delay(5000, millis, callbackFunction); // 5 секунд задержки
+```
+
+## Типы обратных вызовов
+
+### Указатель на функцию
+```cpp
+void myCallback() {
+  // Ваш код здесь
+}
+Timer timer(1000, millis, myCallback);
+```
+
+### Лямбда-функция (платы не-AVR)
+```cpp
+Timer timer(1000, millis, []() {
+  // Ваш код здесь
 });
 ```
 
-### Отложенное действие (delay)
+### Объектно-ориентированный обратный вызов
 ```cpp
-Timer t;
-
-void setup() {
-  t.delay_std(3000, millis, []() {
-    Serial.println("3 секунды прошло");
-  });
-}
-```
-
-### Несколько повторов
-```cpp
-int counter = 0;
-Timer t;
-
-void setup() {
-  t.forCount_std(1000, millis, []() {
-    Serial.println("Пинг");
-  }, 5);
-}
-```
-
----
-
-## Примеры с передачей параметров
-
-### Передача `this` в нестатический метод (через лямбду)
-```cpp
-class Device {
-  Timer t;
-  int pin;
-
+class MyClass {
 public:
-  Device(int p): pin(p) {
-    pinMode(pin, OUTPUT);
-    t.set_std(1000, millis, [this]() {
-      digitalWrite(pin, !digitalRead(pin));
-    });
+  void callback() {
+    // Ваш код здесь
   }
 };
 
-Device d(13);
+MyClass obj;
+Timer timer(1000, millis, [](void* obj) {
+  static_cast<MyClass*>(obj)->callback();
+}, &obj);
 ```
 
-### Передача пользовательской структуры
+## Справочник API
+
+### Конструктор
 ```cpp
-struct Data {
-  int pin;
-};
-
-Timer t;
-Data d = {13};
-
-void blink(void *ctx) {
-  Data *data = (Data*)ctx;
-  digitalWrite(data->pin, !digitalRead(data->pin));
-}
-
-void setup() {
-  pinMode(d.pin, OUTPUT);
-  t.setObj(&d);
-  t.set(500, millis, blink);
-}
+Timer(unsigned long time, TimeFunc t_func, CallbackFunc callback, bool isPre = false);
+Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);
+Timer(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre = false);
 ```
 
----
+### Методы
+- `void check()` - Проверить, должен ли сработать таймер
+- `void ON()` - Включить таймер
+- `void OFF()` - Выключить таймер
+- `bool isRun()` - Проверить, работает ли таймер
+- `void setPeriod(uint32_t val)` - Установить период таймера
+- `uint32_t getPeriod()` - Получить период таймера
 
-## Альтернативные варианты записи
+### Статические методы
+- `static void tick()` - Обработать все таймеры (альтернатива индивидуальным вызовам check)
 
-### Без колбэка — только таймер и check в loop (ручной вызов)
-```cpp
-Timer t;
-void setup() {
-  t.set(1000, millis, callback);
-}
-void loop() {
-  t.check(); // вместо Timer::tick()
-}
-```
+## Примеры
 
-### Таймер с немедленным первым вызовом
-```cpp
-Timer t;
-t.set(1000, millis, cb, true); // вызов cb сразу, потом каждые 1000 мс
-```
+Смотрите папку `examples/` для полных рабочих примеров:
 
----
+- **BasicBlink** - Базовый пример мигания светодиодом
+- **MultipleTimers** - Пример с несколькими таймерами
+- **AVRCompatibility** - Пример для AVR плат
+- **ClassWithMove** - Пример класса с поддержкой move semantics
 
-## Специфические возможности
+## Требования
 
-### Программная остановка
-```cpp
-t.OFF();  // поставить на паузу
-t.ON();   // продолжить
-```
+- Arduino IDE 1.8.0 или новее
+- Совместимость с платами AVR и не-AVR
 
-### Один раз, потом стоп
-```cpp
-t.delay(5000, millis, cb);  // только один вызов через 5 секунд
-```
+## Лицензия
 
----
+Эта библиотека с открытым исходным кодом и доступна под лицензией MIT.
 
-## Советы
-- Для AVR используйте указатели на функции и `setObj()` для передачи контекста.
-- Для ESP32/STM32/ARM используйте `set_std()` и лямбды с захватом.
-- Один `Timer::tick()` обновляет **все** таймеры.
-- Не используйте блокирующие `delay()` — это библиотека для **неблокирующего** программирования.
+## Автор
 
----
+Создано DashyFox
 
-## Совместимость
+## История версий
 
-| Платформа | std::function / лямбды | set / delay / forCount | Контекст `this` |
-|----------|--------------------------|-------------------------|------------------|
-| AVR      | ❌ только `void (*)(void*)` | ✅                      | через setObj     |
-| STM32    | ✅                        | ✅                      | через лямбду     |
-| ESP32    | ✅                        | ✅                      | через лямбду     |
-| RP2040   | ✅                        | ✅                      | через лямбду     |
-
----
-
-## Поддерживаемые методы
-
-- `set`, `set_std`
-- `delay`, `delay_std`
-- `forCount`, `forCount_std`
-- `forTime`, `forTime_std`
-- `setCallback`, `setObj`, `setTimeFunc`
-- `ON()`, `OFF()`, `isRun()`, `isForLast()`
-- `setPeriod()`, `getPeriod()`
-- `Timer::tick()` — обновление всех таймеров
-
----
-
-Лёгкая, универсальная библиотека для управления многозадачностью без прерываний и блокировок.
+- v2.2.0 - Текущая версия с улучшенной функциональностью
+- v2.1.0 - Добавлены функции управления жизненным циклом
+- v2.0.0 - Полная переработка с улучшенной производительностью
