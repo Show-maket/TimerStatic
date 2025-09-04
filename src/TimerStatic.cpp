@@ -77,8 +77,16 @@ Timer::Timer(TimeFunc t_func, void *obj): obj(obj)
   _Timer(0, t_func, nullptr, false);
 }
 
-uint32_t Timer::lifeShortenerCount(Timer *timer){return timer->life - 1;}
-uint32_t Timer::lifeShortenerTime(Timer *timer){return timer->life - (timer->period + ((timer->t_func() - timer->nextTimeTrigger) - timer->period));}
+uint32_t Timer::lifeShortenerCount(Timer *timer){ return timer->life - 1; }
+uint32_t Timer::lifeShortenerTime(Timer *timer){
+  if (timer->t_func == nullptr || timer->period == 0) {return 0; } // Таймер не может работать по времени
+  return timer->life - (timer->period + ((timer->t_func() - timer->nextTimeTrigger) - timer->period));
+}
+
+// Защита от переполнения и джиттера
+inline bool isDue(uint32_t now, uint32_t next, uint32_t period) {
+    return (int32_t)(now - next) >= 0;
+}
 
 void Timer::check()
 {
@@ -88,7 +96,9 @@ void Timer::check()
   }
   uint32_t periodTmp = period;
   setNew = false;
-  if (t_func() - nextTimeTrigger >= periodTmp && isRun_)
+  uint32_t now = t_func();
+  
+  if (isDue(now, nextTimeTrigger, periodTmp) && isRun_)
   {
 #ifndef __AVR__
     if (callbackStdFunc)
@@ -117,12 +127,14 @@ void Timer::check()
     }
 
     this->life = lifeShortenerVal;
+    
+    // Обновляем nextTimeTrigger ПОСЛЕ выполнения callback'а
     do
     {
       nextTimeTrigger += periodTmp;
       if (nextTimeTrigger < periodTmp)
         break;
-    } while (periodTmp != 0 && nextTimeTrigger < t_func() - periodTmp);
+    } while (periodTmp != 0 && nextTimeTrigger < now - periodTmp);
   }
 }
 
@@ -257,8 +269,11 @@ void Timer::forTime_std(uint32_t time, TimeFunc t_func, std::function<void()> ca
 }
 #endif
 
-bool Timer::isForLast()
-{
+bool Timer::isForLast() {
+  // Проверяем полную инициализацию таймера
+  if (t_func == nullptr || period == 0) {
+    return false;
+  }
   return life < lifeShortener(this);
 }
 
@@ -455,5 +470,20 @@ Timer& Timer::operator=(Timer&& other) noexcept {
     }
   }
   return *this;
+}
+
+// Геттеры для получения оставшегося времени
+unsigned long Timer::getRemainingTime() const {
+  if (!isRun_ || t_func == nullptr) return 0;
+  unsigned long currentTime = t_func();
+  if (nextTimeTrigger > currentTime) {
+    return nextTimeTrigger - currentTime;
+  }
+  return 0;
+}
+
+bool Timer::isTimeExpired() const {
+  if (!isRun_ || t_func == nullptr) return true;
+  return t_func() >= nextTimeTrigger;
 }
 
