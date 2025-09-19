@@ -159,7 +159,7 @@ void Timer::delay(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP)
   this->isRun_ = true;
   this->isInf = false;
   this->setNew = true;
-  this->nextTimeTrigger = t_func();
+  this->nextTimeTrigger = t_func() + time;
 }
 
 #ifndef __AVR__
@@ -177,7 +177,7 @@ void Timer::delay_std(uint32_t time, TimeFunc t_func, std::function<void()> call
   this->isRun_ = true;
   this->isInf = false;
   this->setNew = true;
-  this->nextTimeTrigger = t_func();
+  this->nextTimeTrigger = t_func() + time;
 }
 #endif
 
