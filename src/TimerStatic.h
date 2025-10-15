@@ -60,8 +60,8 @@ public:
   void check();
   inline void setObj(void *obj) { this->obj = obj; }
   inline void setTimeFunc(TimeFunc tFunc) { this->t_func = tFunc; }
-  inline void resetToStart() { if (t_func != nullptr) nextTimeTrigger = t_func(); }
-  inline void resetToEnd() { if (t_func != nullptr /* && period <= t_func() */) nextTimeTrigger = t_func() - period; }
+  inline void resetToStart() { if (t_func != nullptr) { nextTimeTrigger = t_func(); setNew = true; } }
+  inline void resetToEnd() { if (t_func != nullptr /* && period <= t_func() */) { nextTimeTrigger = t_func() - period; setNew = true; } }
 
   void setLifeCount(uint16_t newLifeCount);
   void setLifeTime(uint32_t newLifeTime);
