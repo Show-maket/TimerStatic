@@ -60,8 +60,20 @@ public:
   void check();
   inline void setObj(void *obj) { this->obj = obj; }
   inline void setTimeFunc(TimeFunc tFunc) { this->t_func = tFunc; }
-  inline void resetToStart() { if (t_func != nullptr) nextTimeTrigger = t_func(); }
-  inline void resetToEnd() { if (t_func != nullptr /* && period <= t_func() */) nextTimeTrigger = t_func() - period; }
+  inline void resetToStart() { if (t_func != nullptr) { nextTimeTrigger = t_func() + period; setNew = true; } }
+  inline void resetToEnd() { if (t_func != nullptr) { nextTimeTrigger = t_func(); setNew = true; } }
+
+  // Поведенческие гарантии (политики таймера):
+  // 1) Защита от джиттера:
+  //    - Пропущенные тики НЕ приводят к множественным вызовам коллбэка.
+  //    - Внутри check() внутренний nextTimeTrigger «догоняется» до текущего времени,
+  //      так что общий график срабатываний не сдвигается, а пропущенные периоды считаются утерянными.
+  //    - Коллбэк исполняется максимум один раз за проход check(), даже если было пропущено несколько периодов.
+  // 2) forTime(lifeTime): (вариант A — по реальному времени)
+  //    - Таймер работает ровно lifeTime миллисекунд РЕАЛЬНОГО времени с момента старта/последнего перезапуска.
+  //    - Перед исполнением коллбэка вычитается прошедшее «таймерное» время между соседними nextTimeTrigger.
+  //      Если оставшегося life не хватает на этот «шаг», коллбэк НЕ исполняется и таймер останавливается.
+  //    - Джиттер уменьшает оставшуюся «жизнь» таймера: пропущенные шаги не исполняются задним числом.
 
   void setLifeCount(uint16_t newLifeCount);
   void setLifeTime(uint32_t newLifeTime);
