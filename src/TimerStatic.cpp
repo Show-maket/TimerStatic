@@ -28,6 +28,10 @@ void Timer::_Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callba
   }
   last = this;
 
+  // period используется при вычислении nextTimeTrigger, поэтому инициализируем его ДО.
+  // Важно: ранее здесь мог использоваться неинициализированный period.
+  this->period = time;
+
   this->t_func = t_func;
   this->isInf = true;
   if (!(callback == nullptr || callbackParam == nullptr) || !t_func)
@@ -36,9 +40,10 @@ void Timer::_Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callba
   }
   else
   {
-    this->nextTimeTrigger = isPre ? t_func() - period : t_func();
+    // Историческое поведение конструктора: при isPre=true запускать «как будто в прошлом».
+    // При isPre=false — nextTimeTrigger = now (т.е. сработает при ближайшем tick()).
+    this->nextTimeTrigger = isPre ? t_func() - this->period : t_func();
   }
-  this->period = time;
   this->callbackParam = callbackP;
 }
 
@@ -95,170 +100,109 @@ inline bool isDue(uint32_t now, uint32_t next, uint32_t period) {
 
 void Timer::check()
 {
-  if (!t_func)
+  if (!t_func || !isRun_)
   {
     return;
   }
-  uint32_t periodTmp = period;
-  bool wasSetNewBefore = setNew;  // Сохраняем старое значение
-  setNew = false;
-  uint32_t now = t_func();
-  
-  if (isDue(now, nextTimeTrigger, periodTmp) && isRun_)
+
+  const uint32_t now = t_func();
+  const uint32_t periodTmp = period;
+  if (periodTmp == 0)
   {
-#ifdef TIMER_DEBUG
-    Serial.print("[Timer] Firing! now=");
-    Serial.print(now);
-    Serial.print(" next=");
-    Serial.print(nextTimeTrigger);
-    Serial.print(" period=");
-    Serial.print(periodTmp);
-    Serial.print(" wasSetNewBefore=");
-    Serial.println(wasSetNewBefore);
-#endif
+    // Нулевой период приводит к бесконечному циклу догонки.
+    return;
+  }
 
-    // ИСПРАВЛЕНИЕ: Проверяем остановку ДО callback
-    bool isForTime = (!(this->isInf) && lifeShortener == lifeShortenerTime);
-    uint32_t oldNextForTime = nextTimeTrigger;  // Сохраняем для вычисления прошедшего времени
-    
-    // forCount: проверяем счетчик ДО callback
-    if (!(this->isInf) && lifeShortener == lifeShortenerCount)
-    {
-      uint32_t lifeShortenerVal = lifeShortener(this);
-      if (this->life <= lifeShortenerVal)
-      {
-        this->isRun_ = false;
-#ifdef TIMER_DEBUG
-        Serial.println("[Timer] forCount: life expired, stopping");
-#endif
-        return;  // Останавливаем БЕЗ выполнения callback
-      }
-      this->life = lifeShortenerVal;
-    }
+  // setNew используется как внутренний флаг «nextTimeTrigger был изменён пользователем/коллбэком».
+  // Он не должен «залипать» между тиками (иначе ломает логику догонки), поэтому очищаем его здесь.
+  setNew = false;
 
-#ifndef __AVR__
-    if (callbackStdFunc)
-    {
-      callbackStdFunc();
-    }
-    else
-#endif
-    if (dontUseParam)
-    {
-      this->callback();
-    }
-    else
-    {
-      callbackParam(obj);
-    }
+  if (!isDue(now, nextTimeTrigger, periodTmp))
+  {
+    return;
+  }
 
-#ifdef TIMER_DEBUG
-    Serial.print("[Timer] After callback: setNew=");
-    Serial.print(setNew);
-    Serial.print(" | will skip loop: ");
-    Serial.println(wasSetNewBefore || setNew);
-#endif
+  // Определяем режим таймера
+  const bool finite = !isInf;
+  const bool isForCount = finite && (lifeShortener == lifeShortenerCount);
+  const bool isForTime = finite && (lifeShortener == lifeShortenerTime);
 
-    // Пропускаем цикл если setNew был установлен ДО или ВНУТРИ callback
-    if (wasSetNewBefore || setNew)
+  // Считаем, каким будет следующий nextTimeTrigger (догоняем в строго будущее),
+  // но сам nextTimeTrigger пока НЕ меняем — это важно, чтобы уважать resetToStart/resetToEnd из callback.
+  const uint32_t oldNext = nextTimeTrigger;
+  uint32_t nextCandidate = oldNext;
+  do
+  {
+    nextCandidate += periodTmp;
+    if (nextCandidate < periodTmp)
     {
-      // forTime: если loop пропускается, вычитаем period
-      if (isForTime)
-      {
-        if (this->life < periodTmp)
-        {
-          this->isRun_ = false;
-#ifdef TIMER_DEBUG
-          Serial.print("[forTime] STOP (skip loop): life(");
-          Serial.print(this->life);
-          Serial.print(") < period(");
-          Serial.print(periodTmp);
-          Serial.println(")");
-#endif
-          return;
-        }
-#ifdef TIMER_DEBUG
-        Serial.print("[forTime] Skip loop: life ");
-        Serial.print(this->life);
-        Serial.print(" -= period ");
-        Serial.print(periodTmp);
-#endif
-        this->life -= periodTmp;
-#ifdef TIMER_DEBUG
-        Serial.print(" → ");
-        Serial.println(this->life);
-#endif
-      }
-      
-      // ИСПРАВЛЕНИЕ: ВСЕГДА поднимаем nextTimeTrigger в строго будущее при skip
-      // чтобы избежать немедленного повторного срабатывания
-      if (!setNew) // Только если setNew не был установлен в callback (иначе уже есть новое значение)
-      {
-        do {
-          nextTimeTrigger += periodTmp;
-          if (nextTimeTrigger < periodTmp) break; // overflow guard
-        } while (periodTmp != 0 && (int32_t)(now - nextTimeTrigger) >= 0);
-      }
-      
-#ifdef TIMER_DEBUG
-      Serial.print("[Timer] Skipping loop (reset called). nextTrigger=");
-      Serial.println(nextTimeTrigger);
-#endif
+      // overflow guard
+      break;
+    }
+  } while (isDue(now, nextCandidate, periodTmp));
+
+  // Сколько «таймерного времени» должно быть списано за этот тик.
+  // В normal-case это periodTmp. Если tick() опоздал и пропущены интервалы — это k*periodTmp.
+  const uint32_t timerElapsed = nextCandidate - oldNext;
+
+  // === life -> ВАЖНО: life обновляется ДО callback, чтобы isForLast() работал внутри callback ===
+  if (isForCount)
+  {
+    if (life == 0)
+    {
+      isRun_ = false;
       return;
     }
-    
-    // Обновляем nextTimeTrigger ПОСЛЕ выполнения callback'а
-    uint32_t oldNext = nextTimeTrigger;
-    do
+    // На последнем вызове life станет 0 ещё ДО callback
+    life -= 1;
+  }
+  else if (isForTime)
+  {
+    if (life == 0)
     {
-      nextTimeTrigger += periodTmp;
-      
-      // Проверка overflow: если после добавления меньше чем period, произошло переполнение
-      if (nextTimeTrigger < periodTmp)
-        break;
-    } while (periodTmp != 0 && (int32_t)(now - nextTimeTrigger) >= 0);
-    
-    // forTime: вычисляем сколько "времени" прошло по таймеру ПОСЛЕ loop
-    if (isForTime)
-    {
-      uint32_t timerElapsed = nextTimeTrigger - oldNextForTime;  // Сколько времени прошло ПО ТАЙМЕРУ
-      
-#ifdef TIMER_DEBUG
-      Serial.print("[forTime] Timer elapsed = newNext(");
-      Serial.print(nextTimeTrigger);
-      Serial.print(") - oldNext(");
-      Serial.print(oldNextForTime);
-      Serial.print(") = ");
-      Serial.println(timerElapsed);
-      Serial.print("[forTime] life ");
-      Serial.print(this->life);
-      Serial.print(" -= ");
-      Serial.print(timerElapsed);
-#endif
-      
-      if (this->life < timerElapsed)
-      {
-        this->isRun_ = false;
-#ifdef TIMER_DEBUG
-        Serial.println(" → STOP (underflow)");
-#endif
-      }
-      else
-      {
-        this->life -= timerElapsed;
-#ifdef TIMER_DEBUG
-        Serial.print(" → ");
-        Serial.println(this->life);
-#endif
-      }
+      isRun_ = false;
+      return;
     }
-    
-#ifdef TIMER_DEBUG
-    Serial.print("[Timer] Loop done: ");
-    Serial.print(oldNext);
-    Serial.print(" -> ");
-    Serial.println(nextTimeTrigger);
+
+    // Важно: сохраняем историческое поведение forTime — коллбэк вызывается даже если life не хватает
+    // на полный шаг. В этом случае это последний вызов (life принудительно становится 0).
+    if (life <= timerElapsed)
+    {
+      life = 0;
+    }
+    else
+    {
+      life -= timerElapsed;
+    }
+  }
+
+#ifndef __AVR__
+  if (callbackStdFunc)
+  {
+    callbackStdFunc();
+  }
+  else
 #endif
+  if (dontUseParam)
+  {
+    this->callback();
+  }
+  else
+  {
+    callbackParam(obj);
+  }
+
+  // Если коллбэк НЕ делал resetToStart/resetToEnd, то применяем рассчитанное расписание.
+  if (!setNew)
+  {
+    nextTimeTrigger = nextCandidate;
+  }
+
+  // Финитные таймеры (forCount/forTime/delay) автоматически останавливаются сразу после
+  // «последнего» коллбэка, если пользователь внутри callback не продлил life.
+  if (!isInf && life == 0)
+  {
+    isRun_ = false;
   }
 }
 
@@ -371,7 +315,10 @@ void Timer::forTime(uint32_t time, TimeFunc t_func, CallbackFuncParam callbackP,
   this->isInf = false;
   this->isRun_ = lifeTime != 0;
   this->setNew = true;
-  this->nextTimeTrigger = isPre ? t_func() - period : t_func() + period;
+  // В forTime isPre означает «вызвать callback как можно скорее»,
+  // но НЕ сдвигать внутренний график на 2 периода (как при now - period).
+  // Поэтому стартуем с nextTimeTrigger = now.
+  this->nextTimeTrigger = isPre ? t_func() : t_func() + period;
 }
 
 #ifndef __AVR__
@@ -389,23 +336,21 @@ void Timer::forTime_std(uint32_t time, TimeFunc t_func, std::function<void()> ca
   this->isInf = false;
   this->isRun_ = lifeTime != 0;
   this->setNew = true;
-  this->nextTimeTrigger = isPre ? t_func() - period : t_func() + period;
+  // См. комментарий в forTime(..., CallbackFuncParam, ...)
+  this->nextTimeTrigger = isPre ? t_func() : t_func() + period;
 }
 #endif
 
-bool Timer::isForLast() {
-  // Проверяем полную инициализацию таймера
-  if (isInf || t_func == nullptr || period == 0) {
+bool Timer::isForLast()
+{
+  // Гарантия:
+  // - Для forCount/forTime/delay: isForLast()==true ТОЛЬКО в том callback, который является последним.
+  // - После завершения (isRun_==false) isForLast() всегда false.
+  if (!isRun_ || isInf || t_func == nullptr || period == 0)
+  {
     return false;
   }
-  
-  if (lifeShortener == lifeShortenerCount) {
-    // Для forCount: последний если life == 0 (уже уменьшено перед callback)
-    return life == 0;
-  } else {
-    // Для forTime: последний если осталось времени == 0 (уже уменьшено перед callback)
-    return life == 0;
-  }
+  return life == 0;
 }
 
 void Timer::setLifeCount(uint16_t newLifeCount) {
