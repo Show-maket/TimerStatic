@@ -107,11 +107,6 @@ void Timer::check()
 
   const uint32_t now = t_func();
   const uint32_t periodTmp = period;
-  if (periodTmp == 0)
-  {
-    // Нулевой период приводит к бесконечному циклу догонки.
-    return;
-  }
 
   // setNew используется как внутренний флаг «nextTimeTrigger был изменён пользователем/коллбэком».
   // Он не должен «залипать» между тиками (иначе ломает логику догонки), поэтому очищаем его здесь.
@@ -131,15 +126,23 @@ void Timer::check()
   // но сам nextTimeTrigger пока НЕ меняем — это важно, чтобы уважать resetToStart/resetToEnd из callback.
   const uint32_t oldNext = nextTimeTrigger;
   uint32_t nextCandidate = oldNext;
-  do
+  if (periodTmp == 0)
   {
-    nextCandidate += periodTmp;
-    if (nextCandidate < periodTmp)
+    // period=0: «догонка» не нужна — nextCandidate = now (срабатываем на каждом check)
+    nextCandidate = now;
+  }
+  else
+  {
+    do
     {
-      // overflow guard
-      break;
-    }
-  } while (isDue(now, nextCandidate, periodTmp));
+      nextCandidate += periodTmp;
+      if (nextCandidate < periodTmp)
+      {
+        // overflow guard
+        break;
+      }
+    } while (isDue(now, nextCandidate, periodTmp));
+  }
 
   // Сколько «таймерного времени» должно быть списано за этот тик.
   // В normal-case это periodTmp. Если tick() опоздал и пропущены интервалы — это k*periodTmp.
