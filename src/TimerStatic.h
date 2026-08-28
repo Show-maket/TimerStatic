@@ -1,5 +1,16 @@
 #pragma once
 #include "Arduino.h"
+
+// Diagnostic hook for observing every intrusive-list visit made by tick().
+// Keep it completely out of normal builds unless a global compiler flag
+// explicitly enables it for every translation unit.
+#ifndef TIMER_STATIC_ENABLE_OBSERVER
+#define TIMER_STATIC_ENABLE_OBSERVER 0
+#endif
+#if TIMER_STATIC_ENABLE_OBSERVER != 0 && TIMER_STATIC_ENABLE_OBSERVER != 1
+#error "TIMER_STATIC_ENABLE_OBSERVER must be 0 or 1"
+#endif
+
 #ifndef __AVR__
 #include <functional>
 #endif
@@ -8,36 +19,96 @@ class Timer
 private:
   static Timer *head;
   static Timer *last;
+  static Timer *tickCursor;
+  static Timer *tickCurrent;
+  static Timer *tickBoundary;
+  static bool inTick;
 
   typedef void (*CallbackFunc)();
   typedef void (*CallbackFuncParam)(void *);
   typedef unsigned long (*TimeFunc)();
   typedef uint32_t (*LifeShortenerFunc)(Timer *t);
+  enum class CallbackKind : uint8_t {
+    None,
+    Plain,
+    Param,
+#ifndef __AVR__
+    Std,
+#endif
+  };
+
+  struct CallbackFrame {
+    Timer *timer;
+    CallbackFrame *previous;
+  };
+
+  class CallbackGuard {
+  public:
+#ifndef __AVR__
+    CallbackGuard(Timer *timer, CallbackKind invokedKind,
+                  std::function<void()> *detachedStdCallback);
+#else
+    explicit CallbackGuard(Timer *timer);
+#endif
+    ~CallbackGuard();
+
+  private:
+    CallbackFrame frame;
+#ifndef __AVR__
+    CallbackKind invokedKind;
+    std::function<void()> *detachedStdCallback;
+#endif
+  };
+
+#if TIMER_STATIC_ENABLE_OBSERVER
+public:
+  typedef void (*TickObserver)(const Timer *timer);
+#endif
 
 public:
   static void tick();
+#if TIMER_STATIC_ENABLE_OBSERVER
+  static void setTickObserver(TickObserver observer);
+#endif
 
 private:
+#if TIMER_STATIC_ENABLE_OBSERVER
+  static TickObserver tickObserver;
+#endif
+  static CallbackFrame *callbackFrameTop;
   static uint32_t lifeShortenerCount(Timer *timer);
   static uint32_t lifeShortenerTime(Timer *timer);
+  Timer *previous = nullptr;
   Timer *next = nullptr;
-  unsigned long nextTimeTrigger, period;
-  TimeFunc t_func;
-  CallbackFuncParam callbackParam;
-  CallbackFunc callback;
+  unsigned long nextTimeTrigger = 0;
+  unsigned long period = 0;
+  TimeFunc t_func = nullptr;
+  CallbackFuncParam callbackParam = nullptr;
+  CallbackFunc callback = nullptr;
 #ifndef __AVR__
   std::function<void()> callbackStdFunc;
 #endif
   void *obj = nullptr;
   bool isRun_ = true;
-  bool isInf;
+  bool isInf = true;
   uint32_t life = 0;
   LifeShortenerFunc lifeShortener = Timer::lifeShortenerCount;
-  bool setNew = false;
-  uint8_t dontUseParam = 0;
+  bool linked = false;
+  bool callbackActive = false;
+  bool allowZeroPeriod = false;
+  CallbackKind callbackKind = CallbackKind::None;
 
   void _Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre);
-  void unlinkFromList();
+  void unlinkFromList() noexcept;
+  void detachLogicalNode() noexcept;
+  void adoptMovedState(Timer& other) noexcept;
+  bool hasValidCallback() const;
+  bool isRunnableConfiguration() const;
+  void selectCallback(CallbackFunc callback);
+  void selectCallback(CallbackFuncParam callbackP);
+#ifndef __AVR__
+  void selectCallback(std::function<void()> callbackStd);
+#endif
 
 public:
   Timer(unsigned long time, TimeFunc t_func, CallbackFuncParam callbackP, bool isPre = false);
@@ -59,9 +130,9 @@ public:
 
   void check();
   inline void setObj(void *obj) { this->obj = obj; }
-  inline void setTimeFunc(TimeFunc tFunc) { this->t_func = tFunc; }
-  inline void resetToStart() { if (t_func != nullptr) { nextTimeTrigger = t_func() + period; setNew = true; } }
-  inline void resetToEnd() { if (t_func != nullptr) { nextTimeTrigger = t_func(); setNew = true; } }
+  void setTimeFunc(TimeFunc tFunc);
+  inline void resetToStart() { if (t_func != nullptr) nextTimeTrigger = t_func() + period; }
+  inline void resetToEnd() { if (t_func != nullptr) nextTimeTrigger = t_func(); }
 
   // Поведенческие гарантии (политики таймера):
   // 1) Защита от джиттера:
@@ -80,7 +151,9 @@ public:
   void setLifeCount(uint16_t newLifeCount);
   void setLifeTime(uint32_t newLifeTime);
 
-  inline void ON() { this->isRun_ = true; }
+  bool resume();
+  bool restart();
+  inline void ON() { (void)resume(); }
   inline void OFF() { this->isRun_ = false; /* SerialUSB.print("Timer ");SerialUSB.print(period); SerialUSB.println(" OFF"); */}
   inline bool isRun() const { return this->isRun_; }
 
@@ -110,7 +183,7 @@ public:
 #ifndef __AVR__
   void set_std(unsigned long time, TimeFunc t_func, std::function<void()> callbackStd, bool isPre = false);
 #endif
-  inline void setPeriod(uint32_t val) { this->period = val; }
+  void setPeriod(uint32_t val);
   inline uint32_t getPeriod() { return this->period; }
   inline void restartWithPeriod(uint32_t newPeriod) { setPeriod(newPeriod); resetToStart(); }
 
