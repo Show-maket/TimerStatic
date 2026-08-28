@@ -4,6 +4,9 @@
 // Test variables
 volatile bool callbackCalled = false;
 volatile int callbackCount = 0;
+#if TIMER_STATIC_ENABLE_OBSERVER
+const Timer* observedTimer = nullptr;
+#endif
 
 // Test callback functions
 void simpleCallback() {
@@ -22,13 +25,26 @@ unsigned long mockMillis() {
     return mockTime;
 }
 
+#if TIMER_STATIC_ENABLE_OBSERVER
+void observeTimer(const Timer* timer) {
+    observedTimer = timer;
+}
+#endif
+
 void setUp(void) {
     callbackCalled = false;
     callbackCount = 0;
     mockTime = 0;
+#if TIMER_STATIC_ENABLE_OBSERVER
+    observedTimer = nullptr;
+    Timer::setTickObserver(nullptr);
+#endif
 }
 
 void tearDown(void) {
+#if TIMER_STATIC_ENABLE_OBSERVER
+    Timer::setTickObserver(nullptr);
+#endif
     // Clean up any timers
     Timer::tick();
 }
@@ -130,6 +146,28 @@ void test_for_count_timer() {
     TEST_ASSERT_FALSE(timer.isRun());
 }
 
+void test_unconfigured_timer_is_stopped() {
+    Timer timer;
+    TEST_ASSERT_FALSE(timer.isRun());
+
+    mockTime = 1000;
+    timer.check();
+    TEST_ASSERT_FALSE(callbackCalled);
+}
+
+void test_tick_observer_sees_timer_before_callback() {
+#if TIMER_STATIC_ENABLE_OBSERVER
+    Timer timer(1000, mockMillis, simpleCallback);
+    Timer::setTickObserver(observeTimer);
+
+    mockTime = 1000;
+    Timer::tick();
+
+    TEST_ASSERT_EQUAL_PTR(&timer, observedTimer);
+    TEST_ASSERT_TRUE(callbackCalled);
+#endif
+}
+
 int main() {
     UNITY_BEGIN();
     
@@ -139,6 +177,8 @@ int main() {
     RUN_TEST(test_timer_on_off);
     RUN_TEST(test_delay_timer);
     RUN_TEST(test_for_count_timer);
+    RUN_TEST(test_unconfigured_timer_is_stopped);
+    RUN_TEST(test_tick_observer_sees_timer_before_callback);
     
     return UNITY_END();
 }
