@@ -60,12 +60,13 @@ if ($stderr) { [Console]::Error.WriteLine($stderr.TrimEnd()) }
 
 $passCases = @($stdout -split "`r?`n" | Where-Object { $_ -match '^TS,CASE,[^,]+,PASS,' }).Count
 $failCases = @($stdout -split "`r?`n" | Where-Object { $_ -match '^TS,CASE,[^,]+,FAIL,' }).Count
+$identityOk = $stdout -match '(?m)^TS,IDENTITY,name=TimerStaticHardwareTorture,protocol=2,build=timerstatic-hwtorture-dfu1,timerstatic_code=c28bd1be0e97e9c10474b49009dab877838cb19c,harness_base=84ad1a10b9c8cff6fae7b7e0ee5c660791edb256,dfugate_source=04754dd4f7bbb47c7250aaf84633e235ac0f6a40,board=HOST_REFERENCE\r?$'
 $summaryOk = $stdout -match '(?m)^TS,SUMMARY,PASS,passed=19,failed=0,'
 $stopOk = $stdout -match '(?m)^TS,SUITE,STOP\r?$'
 
 if ($process.ExitCode -ne 0 -or $passCases -ne 19 -or $failCases -ne 0 -or
-    -not $summaryOk -or -not $stopOk) {
-    Write-Output "TS,HOST,FAIL,stage=verify,exit=$($process.ExitCode),pass_cases=$passCases,fail_cases=$failCases,summary=$summaryOk,stop=$stopOk"
+    -not $identityOk -or -not $summaryOk -or -not $stopOk) {
+    Write-Output "TS,HOST,FAIL,stage=verify,exit=$($process.ExitCode),pass_cases=$passCases,fail_cases=$failCases,identity=$identityOk,summary=$summaryOk,stop=$stopOk"
     exit 1
 }
 

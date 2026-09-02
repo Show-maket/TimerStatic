@@ -23,10 +23,12 @@ extern "C" void* __wrap_realloc(void* pointer, size_t size) {
 #endif
 
 #if defined(ARDUINO_ARCH_STM32) && !defined(TIMERSTATIC_HOST_REFERENCE)
-#include <IWatchdog.h>
+#include <DfuGate.h>
 #define TS_SERIAL SerialUSB
+#define TS_HAS_DFUGATE 1
 #else
 #define TS_SERIAL Serial
+#define TS_HAS_DFUGATE 0
 #endif
 
 // TimerStatic hardware torture suite.
@@ -36,6 +38,9 @@ extern "C" void* __wrap_realloc(void* pointer, size_t size) {
 //   TS,CASE,<name>,FAIL,checks=<n>,line=<line>,actual=<a>,expected=<e>
 //   TS,SUMMARY,PASS|FAIL,...
 //   TS,SUITE,STOP
+// After STOP, an exact lower-case "dfu" terminated by CR or LF requests a
+// reset-mediated DFU entry. No prefix, suffix, whitespace, or unterminated
+// token is accepted.
 //
 // All synthetic time tests use injected TimeFunc functions.  The final case
 // exercises the board's real millis()/micros().  No test changes library
@@ -47,21 +52,119 @@ static constexpr uint32_t kCanaryA = 0x13579BDFUL;
 static constexpr uint32_t kCanaryB = 0x2468ACE0UL;
 static constexpr uint32_t kSuiteDeadlineMs = 20000UL;
 static constexpr uint32_t kSerialWaitMs = 1500UL;
+static constexpr uint32_t kEarlyDfuWindowMs = 3000UL;
+static constexpr uint32_t kRunWatchdogUs = 8000000UL;
 static constexpr size_t kEventCapacity = 256U;
 static constexpr size_t kStressTimers = 96U;
+static const char kBuildIdentity[] = "timerstatic-hwtorture-dfu1";
+static const char kTimerStaticCode[] = "c28bd1be0e97e9c10474b49009dab877838cb19c";
+static const char kHarnessBase[] = "84ad1a10b9c8cff6fae7b7e0ee5c660791edb256";
+static const char kDfuGateSource[] = "04754dd4f7bbb47c7250aaf84633e235ac0f6a40";
 
 static uint32_t gFakeMillis = 0;
 static uint32_t gFakeMicros = 0;
 static bool gSuiteDone = false;
 static bool gSuitePassed = false;
 
+#if TS_HAS_DFUGATE
+static bool serialReady() { return static_cast<bool>(TS_SERIAL); }
+
+static DfuGate::Config dfuConfig()
+{
+  DfuGate::Config config;
+  config.io = &TS_SERIAL;
+  config.ioReady = serialReady;
+  config.windowMs = kEarlyDfuWindowMs;
+  config.waitReadyMs = kSerialWaitMs;
+  config.beatMs = 500UL;
+  config.token = "dfu";
+  config.beatMsg = "TS,DFU,EARLY";
+  config.beforeJump = nullptr;  // This sketch never configures or drives the motor.
+  config.watchdog = true;
+  config.initTimeoutUs = 0;     // Hardware maximum; covers gate + 20 s suite deadline.
+  config.runTimeoutUs = kRunWatchdogUs;
+  config.banner = false;        // A versioned TS banner is emitted below.
+  return config;
+}
+
+static void emitDfuBannerAndDiagnostics()
+{
+  const DfuGate::OptionBytes options = DfuGate::optionBytes();
+  const bool backupOk = DfuGate::selfTest(dfuConfig());
+  const char* why = nullptr;
+  const bool optionsOk = DfuGate::optionsSafe(&why);
+  (void)why;
+
+  TS_SERIAL.print(F("TS,BOOT,protocol=2,reset="));
+  TS_SERIAL.print(DfuGate::resetCauseName(DfuGate::resetCause()));
+  TS_SERIAL.print(F(",wdg="));
+  TS_SERIAL.print(IWatchdog.isEnabled() ? 1 : 0);
+  TS_SERIAL.print(F(",early_window_ms="));
+  TS_SERIAL.println(kEarlyDfuWindowMs);
+
+  TS_SERIAL.print(F("TS,DFU,DIAG,bkp="));
+  TS_SERIAL.print(backupOk ? F("PASS") : F("FAIL"));
+  TS_SERIAL.print(F(",options="));
+  TS_SERIAL.print(optionsOk ? F("SAFE") : F("UNSAFE"));
+  TS_SERIAL.print(F(",iwdg_hw="));
+  TS_SERIAL.print(options.iwdgHardware ? 1 : 0);
+  TS_SERIAL.print(F(",boot_pin="));
+  TS_SERIAL.print(options.bootFromPin ? 1 : 0);
+  TS_SERIAL.print(F(",rdp="));
+  TS_SERIAL.print(options.rdpLevel);
+  TS_SERIAL.print(F(",optr=0x"));
+  TS_SERIAL.println(options.raw, HEX);
+}
+
+struct ExactDfuCommandParser {
+  char bytes[3];
+  uint8_t size;
+  bool rejected;
+
+  ExactDfuCommandParser() : bytes{0, 0, 0}, size(0), rejected(false) {}
+
+  void reset()
+  {
+    size = 0;
+    rejected = false;
+  }
+
+  void push(char value)
+  {
+    if (value == '\r' || value == '\n') {
+      const bool accepted = !rejected && size == sizeof(bytes) &&
+                            memcmp(bytes, "dfu", sizeof(bytes)) == 0;
+      reset();
+      if (accepted) {
+        TS_SERIAL.println(F("TS,DFU,REQUEST,ACCEPTED"));
+        TS_SERIAL.flush();
+        DfuGate::requestAndReset(dfuConfig());
+      }
+      return;
+    }
+
+    if (!rejected && size < sizeof(bytes)) bytes[size++] = value;
+    else rejected = true;
+  }
+};
+
+static ExactDfuCommandParser gDfuParser;
+
+static void pollDfuCommand()
+{
+  while (TS_SERIAL.available() > 0) {
+    gDfuParser.push(static_cast<char>(TS_SERIAL.read()));
+  }
+}
+#endif
+
 static unsigned long fakeMillisClock() { return gFakeMillis; }
 static unsigned long fakeMicrosClock() { return gFakeMicros; }
 
 static void serviceWatchdog()
 {
-#if defined(ARDUINO_ARCH_STM32) && !defined(TIMERSTATIC_HOST_REFERENCE)
-  if (IWatchdog.isEnabled()) IWatchdog.reload();
+#if TS_HAS_DFUGATE
+  DfuGate::feed();
 #endif
   yield();
 }
@@ -1030,18 +1133,46 @@ static void emitCase(const CaseResult& result)
 
 void setup()
 {
-#if defined(ARDUINO_ARCH_STM32) && !defined(TIMERSTATIC_HOST_REFERENCE)
-  if (!IWatchdog.isEnabled()) IWatchdog.begin(8000000UL);
+#if TS_HAS_DFUGATE
+  // Must remain the first executable operation: it touches no Serial object
+  // and recovers a request recorded before the preceding software reset.
+  DfuGate::checkFlagOrReturn(dfuConfig());
 #endif
 
   TS_SERIAL.begin(115200);
+#if TS_HAS_DFUGATE
+  // The maximum init window starts before the recovery gate and remains in
+  // force through the suite. It is shortened only after STOP is flushed.
+  DfuGate::startWatchdogInit(dfuConfig());
+  DfuGate::earlyGate(dfuConfig());
+  DfuGate::feed();
+#endif
   const uint32_t serialWaitStart = millis();
   while (!TS_SERIAL && static_cast<uint32_t>(millis() - serialWaitStart) < kSerialWaitMs) {
     serviceWatchdog();
   }
 
   const size_t caseCount = sizeof(kCases) / sizeof(kCases[0]);
-  TS_SERIAL.print(F("TS,SUITE,START,version=1,cases="));
+  TS_SERIAL.print(F("TS,IDENTITY,name=TimerStaticHardwareTorture,protocol=2,build="));
+  TS_SERIAL.print(kBuildIdentity);
+  TS_SERIAL.print(F(",timerstatic_code="));
+  TS_SERIAL.print(kTimerStaticCode);
+  TS_SERIAL.print(F(",harness_base="));
+  TS_SERIAL.print(kHarnessBase);
+  TS_SERIAL.print(F(",dfugate_source="));
+  TS_SERIAL.print(kDfuGateSource);
+#if defined(BOARD_NAME)
+  TS_SERIAL.print(F(",board="));
+  TS_SERIAL.println(BOARD_NAME);
+#else
+  TS_SERIAL.println(F(",board=HOST_REFERENCE"));
+#endif
+
+#if TS_HAS_DFUGATE
+  emitDfuBannerAndDiagnostics();
+#endif
+
+  TS_SERIAL.print(F("TS,SUITE,START,version=2,cases="));
   TS_SERIAL.print(caseCount);
   TS_SERIAL.print(F(",stress_timers="));
   TS_SERIAL.print(kStressTimers);
@@ -1089,13 +1220,21 @@ void setup()
   TS_SERIAL.println(F("TS,SUITE,STOP"));
   TS_SERIAL.flush();
   gSuiteDone = true;
+#if TS_HAS_DFUGATE
+  // Do not shorten the watchdog before the complete terminal record has left
+  // the CDC stream: an early reset must never masquerade as a suite failure.
+  DfuGate::ready(dfuConfig());
+#endif
 }
 
 void loop()
 {
   // Deliberately do not call Timer::tick() after the terminal record.
-  // Keep an already-enabled watchdog alive without producing more output.
+  // Keep the watchdog alive and retain a deterministic software DFU path.
   serviceWatchdog();
+#if TS_HAS_DFUGATE
+  pollDfuCommand();
+#endif
   delay(1);
 }
 
