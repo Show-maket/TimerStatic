@@ -4,6 +4,12 @@
 
 ## Список примеров
 
+### HardwareTorture
+**Файл:** `HardwareTorture/HardwareTorture.ino`
+**Описание:** Конечный машинно-читаемый стресс-тест списка, callback-мутаций,
+move-семантики, wrap времени и 96 одновременных таймеров на STM32/host.
+**Протокол:** `docs/HARDWARE_TORTURE.md`.
+
 ### 1. BasicBlink
 **Файл:** `BasicBlink/BasicBlink.ino`
 **Описание:** Базовый пример мигания светодиодом с помощью таймера.
