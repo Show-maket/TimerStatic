@@ -10,19 +10,23 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module">
-      const response = await fetch('./assets/app.js.gz');
-      if (!response.ok || !response.body) {
-        throw new Error('Не удалось загрузить данные отчёта');
-      }
-      const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
-      const source = await new Response(stream).text();
-      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      try {
-        await import(moduleUrl);
-      } finally {
-        URL.revokeObjectURL(moduleUrl);
-      }
+    <script>
+      (async function () {
+        const response = await fetch('./assets/app.js.gz');
+        if (!response.ok || !response.body) {
+          throw new Error('Не удалось загрузить данные отчёта');
+        }
+        const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
+        const source = await new Response(stream).text();
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          await import(moduleUrl);
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      })().catch(function (error) {
+        document.getElementById('root').textContent = 'Не удалось открыть отчёт: ' + error.message;
+      });
     </script>
   </body>
 </html>
