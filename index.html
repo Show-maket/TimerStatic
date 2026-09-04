@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Управленческий отчёт музеев ЗК и МР с данными по август 2026 года." />
+    <link rel="icon" href="./favicon.svg" />
+    <link rel="stylesheet" href="./assets/site.css" />
+    <title>Отчёт ЗК и МР · Август 2026</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      const response = await fetch('./assets/app.js.gz');
+      if (!response.ok || !response.body) {
+        throw new Error('Не удалось загрузить данные отчёта');
+      }
+      const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
+      const source = await new Response(stream).text();
+      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      try {
+        await import(moduleUrl);
+      } finally {
+        URL.revokeObjectURL(moduleUrl);
+      }
+    </script>
+  </body>
+</html>
+
