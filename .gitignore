@@ -31,4 +31,5 @@ Thumbs.db
 
 # Documentation build
 docs/_build/
-docs/_static/
+docs/_static/.build/
+host_tests/*.exe
